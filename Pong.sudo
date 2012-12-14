@@ -1,0 +1,419 @@
+// Name: Brandon Hindes
+// Date: 30-10-12
+// Purpose: Allow any one with TV remotes to play pong on their TV
+
+//Library Declaration ============================
+Include <TVout.h>
+Include <IRremote.h>
+//Varriables and Placeholders ====================
+//Pins and Libraries =============================
+Declare TVout TV								//Create and Set Varriable TVout to TV
+Declare Int POWLED=13							//Set the Power LED to pin 13
+Declare Int IRIN=1								//Set the IR Input to pin 1
+Declare Int button=0							//Placeholder for reset button
+//IR =============================================
+Declare IRrecv irrecv(IRIN)						//Fairly sure setting IR varriable to pin 1
+Declare Int p1[4]=(0,0,0,0)						//Placeholder for Player 1 controls
+Declare Int ir=0x00								//Placeholder for IR
+//Settings =======================================
+Declare Boolean drawB=true						//Weather or not to draw the boarder
+Declare Int ballSpeed=2							//Ball Speed on the Screen
+Declare Boolean initConf=false					//Placeholder for Initial Config run
+//Display ========================================
+Declare String conf[15]=(						//Stored text for use in menus
+"       CONFIG       ", // 0
+"      PLAYER 1      ", // 1
+"   Please hit the   ", // 2
+"button on the remote", // 3
+"        DOWN        ", // 4
+"         UP         ", // 5
+"        MENU        ", // 6
+"       SELECT       ", // 7
+"Select the ballspeed", // 8
+"  Draw the Boarder  ", // 9
+"       PAUSED       ", // 10
+"       CONFIG       ", // 11
+"    RESTART GAME    ", // 12
+"     SLEEP MODE     ", // 13
+"")						// 14
+Declare Int confL[15]=(							//What line the text is located
+0,1,2,4,3,3,3,3,2,2,0,2,3,4,0)
+Declare String YN[6]=(							//Stored text for use in menus
+"YES", "NO", "1", "2", "3", "4")
+Declare Int YNX[6]=(30,94,50,58,66,74)			//Yes No X,Y location
+Declare Int size=0								//Placeholder for array text display
+Declare Int sel[6]=(0,0,0,0,0,0)				//Placeholder for menu selections(on/off,X,Y,W,H,#)
+//Gameplay =======================================
+Declare Int pscore[2]=0							//Player 1 and 2 Score
+Declare Int pPaddle[2]=(40,40)					//Player 1 and 2 Paddle Positon
+Declare Int ball[2]=(64,48)						//Ball X,Y location
+Declare Int bd[2]=(0,1)							//Ball Direction (X 0 left, 1 right),(Y 0 up, 1 straight, 2 down)
+Declare Int dir=0								//Player 2 AI Paddle Movement Calcualtion Varriable
+//Initial Setup ==================================
+Function Void setup() {
+	TV.begin_render(_NTSC)						//Set output format to NTSC or PAL
+	TV.clear_screen()							//Clear the screen initially
+	pinMode(POWLED,OUTPUT)						//Set Power LED pin to output mode
+	pinMode(IRIN,INPUT)							//Set IR Input pin to input mode
+	TV.select_font(font4x6)						//Set font size to 8x8 pixels
+	digitalWrite(POWLED,HIGH)					//Turn the Power LED on
+	irrecv.enableIRIn()							//Start the receiver
+	Serial.begin(9600)							//Start the connection with USB port for debug
+	Serial.println("Setup Complete")			//Send message to debug
+}
+//Main Loop ======================================
+Function Void loop() {
+	button=analogRead(4)						//Read analog input for button
+	ir=Call irRead()							//Call irRead
+	If(initConf==False) Then					//Run Configuration at least once
+		Call config()							//Call Config
+	Else If(button>=900) Then					//If button is pressed
+		Call reset()							//Call reset
+	Else If(ir==p1[2]) Then						//If menu button is pressed
+		Call menu()								//Call menu
+	Else If(ir==p1[1]) Then						//If Up is pressed
+		If(pPaddle[0]<=1) Then					//If Player 1 Paddle is less than or = 1
+			pPaddle[0]=pPaddle[0]-2				//Move Player 1 Paddle up
+		End If
+	Else If(ir==p1[0]) Then						//If Down is pressed
+		If(pPaddle[0]>=95) Then					//If Player 1 Paddle is greater than or = 95
+			pPaddle[0]=pPaddle[0]+2				//Move Player 1 Paddle Down
+		End If
+	End If
+	Call AI()									//Call AI to move player 2 Paddle
+	Call draw(false,0,(13))						//Call draw to update screen
+	Wait(50)									//Wait 1/20 second
+}
+//IR Read ========================================
+Function Int irRead(){
+	If(irrecv.decode(&results)) Then			//If IR Input decoding sucseeds
+		Serial.println(results.value)			//Print current value to debug monitor
+		irrecv.resume()							//Receive the next value
+		Return(results.value)					//Return the the IR value
+	Else
+		Return(0)								//Return defualt
+	End If
+	Return()									//Return to main loop
+}
+
+//Initial Configuration ==========================
+Function Void config() {
+	Declare Int I=4								//Varriable used for loops
+	//Step 1 =====================================
+	Do {
+		Call draw(true,0,(0,1,2,3,I))
+		ir=Call irRead()						//Call irRead
+		If(ir!=0) Then							//If ir does not = 0
+			p1[I-4]=ir							//Player 1 Control
+			I++									//Increase I by 1
+		End If
+	} Until(p1[0]!=0 AND p1[1]!=0 AND p1[2]!=0 AND p1[3]!=0)
+	//Step 2 =====================================
+	sel[5]=0									//Reset Selection
+	Do {
+		ir=Call irRead()						//Call irRead
+		For(I=2;I<6;I++) Then					//Loop through sel[5]
+			If(sel[5]==I) Then					//If sel[5] = I
+				sel[]=(1,(YNX[I]-1),45,(YNX[I]+6),53,I)
+				ballSpeed=I-2					//Ball speed = displayed selection
+			End If
+		End For
+		If(ir==p1[0]) Then						//If Player 1 hits DOWN button
+			sel[5]=sel[5]+1						//Increase sel[5] by 1
+			If(sel[5]>=6) Then					//If sel[5] = 6
+				sel[5]=0						//Set sel[5] = 0
+			End If
+			Wait(500)							//Wait 1/2 second
+		End If
+		If(ir==p1[1]) Then						//If Player 1 hits UP button
+			sel[5]=sel[5]-1						//Decrease sel[5] by 1
+			If(sel[5]<=-1) Then					//If sel[5] = -1
+				sel[5]=5						//Set sel[5] = 5
+			End If
+			Wait(500)							//Wait 1/2 second
+		End If
+		Call draw(true,2,(0,1,8))				//Call draw
+	} Until(ir==p1[3])							//Loop until Player 1 hits Select Button
+	//Step 3 =====================================
+	sel[5]=0									//Reset Selection
+	Do {
+		ir=Call irRead()						//Call irRead
+		Switch (sel[5])							//Sel Selection #
+			Case 0 Then							//Turn on sel and boarder option 1
+				sel[]=(1,(YNX[0]-1),45,(YNX[0]+14),53,0)
+				Break							//Stop Switch Statement
+			Case 1 Then							//Turn on sel and boarder option 2
+				sel[]=(1,(YNX[1]-1),45,(YNX[1]+10),53,1)
+				Break							//Stop Switch Statement
+		End Switch
+		If(ir==p1[0] OR ir==p1[1]) Then			//If Player 1 hits DOWN button
+			Switch (sel[5])						//Rotate through selections
+				Case 0 Then
+					sel[5]=1
+					Wait(500)					//wait 1/2 second
+					Break						//Stop Switch Statement
+				Case 1 Then
+					sel[5]=0
+					Wait(500)					//wait 1/2 second
+					Break						//Stop Switch Statement
+			End Switch
+		End If
+		Call draw(true,2,(0,1,9))				//Call draw
+	} Until(ir==p1[3])							//Loop until Player 1 hits Select button
+	Return()									//Return to main loop
+}
+//Pause Screen/Menu ==============================
+Function void menu() {
+	sel[5]=0									//Reset Selection
+	Do {
+		ir=Call irRead()						//Call irRead
+		If(ir==p1[2]) Then						//If Player 1 hits Start button
+			Return()							//Return to main loop
+		Else If(ir==p1[0]) Then					//If Player 1 hits DOWN button
+			sel[5]=sel[5]+1						//Increase sel[5] by 1
+			If(sel[5]>=3) Then					//If sel[5] = 6
+				sel[5]=0						//Set sel[5] = 0
+			End If
+			Wait(500)							//Wait 1/2 second
+		Else If(ir==p1[1]) Then					//If Player 1 hits UP button
+			sel[5]=sel[5]-1						//Decrease sel[5] by 1
+			If(sel[5]<=-1) Then					//If sel[5] = -1
+				sel[5]=2						//Set sel[5] = 5
+			End If
+			Wait(500)							//Wait 1/2 second
+		End If
+		For(I=0;I<3;I++) Then					//Loop through sel[5]
+			If(sel[5]==I) Then					//If sel[5] = I
+				sel[]=(1,23,(3+(confL[I+11]*6)+(2*confL[I+11])),105,(4+(confL[I+11]*6)+(2*confL[I+11])+7),I)
+			End If
+		End For
+		Call draw(true,0,(10,11,12,13))
+	} Until(ir==p1[3])							//Loop until Player 1 hits Select Button
+	//Selection===================================
+	Switch (sel[5])
+		Case 0 Then
+			Call config()						//Call Config
+			Break								//Stop Switch Statement
+		Case 1 Then
+			Call restart()						//Call Restart
+			Break								//Stop Switch Statement
+		Case 2 Then
+			Call sleep()						//Call Sleep
+			Break								//Stop Switch Statement
+	End Switch
+	Return()									//Return to main loop
+}
+//Reset score and settings =======================
+Function void reset() {
+	digitalWrite(POWLED,LOW)					//Turn the Power LED off
+	TV.clear_screen()							//Clear the TV screen
+	pscore[]=(0,0)								//Player 1 and 2 score = 0
+	ballSpeed=2									//Ball Speed = 2
+	ball[]=(64,48)								//Ball Position = 64,48
+	bd[]=(0,1)									//Ball Direction = 0,1
+	drawB=true									//Draw Boarder = true
+	initConf=false								//Run the Initial Config true
+	pPaddle[]=(40,40)							//Player 1 and 2 Paddle position = 40
+	p1[]=(0,0,0,0)								//Reset Controls
+	sel[]=(0,0,0,0,0,0)							//Reset Selection
+	button=0									//Reset readout on button
+	Wait(1000)									//Wait 1 second
+	Return()									//Return to main loop
+}
+//Put the device to sleep, still draws power =====
+Function void sleep() {
+	Declare Boolean slp=false					//Varriable used for wakeup
+	Call reset()								//Call Reset
+	Do {
+		Wait(1000)								//Wait 1 second
+		button=analogRead(4)					//Read analog input for button
+		If(button>=900) Then					//If button is pressed
+			slp=true							//Set slp to true to end loop
+		End If
+	} Until(slp=true)							//Loop untill button is pressed
+	Return()									//Return to main loop
+}
+//Draw Ball and move it ==========================
+Function void drawball() {
+	Declare Int I=0								//Varriable used for loops
+	//Movement ===================================
+	Switch (bd[0])								//Ball Direction X
+		Case 0 Then								//Left
+			ball[0]=ball[0]-ballSpeed
+			Break								//Stop Switch Statement
+		Case 1 Then								//Right
+			ball[0]=ball[0]+1
+			Break								//Stop Switch Statement
+	End Switch
+	Switch (bd[1])
+		Case 0 Then								//Up
+			ball[1]=ball[1]-ballSpeed
+			Break								//Stop Switch Statement
+		Case 1 Then								//Straight
+			ball[0]=ball[0]+1
+			Break								//Stop Switch Statement
+		Case 2 Then								//Down
+			ball[1]=ball[1]+ballSpeed
+			Break								//Stop Switch Statement
+	End Switch
+	//Collision Detection ========================
+	If(ball[0]<=1) Then							//Check scorezones
+		Call score(2)							//Call score
+		ball[]=(64,48)							//Ball Position = 64,48
+		bd[1]=1									//Ball Direction Straight
+	Else If(ball[0]>=127) Then
+		Call score(1)							//Call score
+		ball[]=(64,48)							//Ball Position = 64,48
+		bd[1]=1									//Ball Direction Straight
+	End If
+	If(ball[1]<=1 OR ball[1]>=95) Then			//Check top and bottom
+		Switch (bd[1])
+			Case 0 Then							//Moving Up
+				bd[1]=2							//Change direction to Down
+				Break							//Stop Switch Statement
+			Case 2 Then							//Moving Down
+				bd[1]=0							//Change Direction to Up
+				Break							//Stop Switch Statement
+		End Switch
+	End If
+	//Player 1 Paddle ============================
+	If(ball[1]>=(pPaddle[0]-2) AND ball[1]<=(pPaddle[0]+17) AND ball[0]<=9 AND ball[0]>=3) Then
+		bd[0]=1									//Ball Direction = Right
+		If(ball[1]<=(pPaddle[0]+5)) Then		//If ball hits top side of paddle
+			Switch (bd[1])
+				Case 0 Then						//Moving Up
+					Break						//Stop Switch Statement
+				Case 1 Then						//Moving Straight
+					bd[1]=0						//Change Direction to Up
+					Break						//Stop Switch Statement
+				Case 2 Then						//Moving Down
+					bd[1]=1						//Change Direction to Straight
+					Break						//Stop Switch Statement
+		Else If(ball[1]>=(pPaddle[0]+11)) Then	//If ball hits bottom side of paddle
+			Switch (bd[1])
+				Case 2 Then						//Moving Down
+					Break						//Stop Switch Statement
+				Case 1 Then						//Moving Straight
+					bd[1]=2						//Change Direction to Down
+					Break						//Stop Switch Statement
+				Case 0 Then						//Moving Up
+					bd[1]=1						//Change Direction to Straight
+					Break						//Stop Switch Statement
+		End If
+	End If
+	//Player 2 Paddle ============================
+	If(ball[1]>=(pPaddle[1]-2) AND ball[1]<=(pPaddle[1]+17) AND ball[0]>=119 AND ball[0]<=124) Then
+		bd[0]=0									//Ball Direction = Left
+		If(ball[1]<=(pPaddle[1]+5)) Then		//If ball hits top side of paddle
+			Switch (bd[1])
+				Case 0 Then						//Moving Up
+					Break						//Stop Switch Statement
+				Case 1 Then						//Moving Straight
+					bd[1]=0						//Change Direction to Up
+					Break						//Stop Switch Statement
+				Case 2 Then						//Moving Down
+					bd[1]=1						//Change Direction to Straight
+					Break						//Stop Switch Statement
+		Else If(ball[1]>=(pPaddle[1]+11)) Then	//If ball hits bottom side of paddle
+			Switch (bd[1])
+				Case 2 Then						//Moving Down
+					Break						//Stop Switch Statement
+				Case 1 Then						//Moving Straight
+					bd[1]=2						//Change Direction to Down
+					Break						//Stop Switch Statement
+				Case 0 Then						//Moving Up
+					bd[1]=1						//Change Direction to Straight
+					Break						//Stop Switch Statement
+		End If
+	End If
+	//Draw =======================================
+	TV.draw_rectangle(ball[0],ball[1],(ball[0]+1),(ball[1]+1),1,1)
+	Return()									//Return to draw
+}
+//Player 2 AI Movement ===========================
+Function void AI() {
+	If(ball[0]>=64) Then						//If Ball is greater than or = to half way
+		If(pPaddle[1]>=1 AND pPaddle[1]<=95) Then
+			dir=ball[1]-pPaddle[1]				//Get direction paddle needs to move
+			dir=constrain(dir,-1,1)				//Force dir range from -1 to 1
+			Switch (dir)
+				Case -1 Then					//Ball is higher
+					pPaddle[1]=pPaddle[1]-2
+					Break						//Stop Switch Statement
+				Case 0 Then						//Aligned with ball
+					dir=Random(-1,2)			//Generate a random Number between -1 and 1
+					pPaddle[1]=pPaddle[1]+(dir*2)
+					Break						//Stop Switch Statement
+				Case 1 Then						//Ball is lower
+					pPaddle[1]=pPaddle[1]+1
+					Break						//Stop Switch Statement
+			End Switch
+		End If
+	End If
+	Return()									//Return to main loop
+}
+//Displays and modifies score ====================
+Function void score(Int F) {
+	If(F==0) Then
+		TV.set_cursor(8,8)						//Set cursor location to 8 pixels in, 8 pixels down from top left
+		TV.print(pscore[0])						//Draw Player 1 Score
+		If(pscore[1]<=9) Then					//Adjust for double digit
+			TV.set_cursor(120,8)				//Set cursor location to 8 pixels in from, 8 pixels down top right
+		Else
+			TV.set_cursor(112,8)				//Set cursor location to 16 pixels in from, 8 pixels down top right
+		End If
+		TV.print(pscore[1])						//Draw Player 2 Score
+	Else If(F==1) Then							//If Function = 1
+		pscore[0]=pscore[0]+1					//Increase Player 1 Score
+		Return()								//Return to drawBall
+	Else If(F==2) Then							//If Function = 2
+		pscore[1]=pscore[1]+1					//Increase Player 2 Score
+		Return()								//Return to drawBall
+	End If
+	Return()									//Return to draw
+}
+//Draw the boarder ===============================
+Function void boarder() {
+	TV.draw_rectangle(64,0,65,96,1,1)			//Draw a line down the middle of the screen
+	Return()									//Return to draw
+}
+//Draw the paddles ===============================
+Function void paddle() {
+	TV.draw_rectangle(4,pPaddle[0],8,(pPaddle[0]+16),1,1)
+	TV.draw_rectangle(124,pPaddle[1],120,(pPaddle[1]+16),1,1)
+	Return()									//Return to draw
+}
+//Auto call and draw nessesary things for the screen
+Function void draw(Boolean F Int slt Int T[]) {
+	If(F==false) Then							//If F = false display game
+		If(drawB==true) Then					//If draw boarder is true
+			Call boarder()						//Call boarder
+		End If
+		Call score(0)							//Call score
+		Call paddle()							//Call paddle
+		Call drawBall()							//Call drawBall
+	Else If(F==true) Then						//If F = true display menus
+		Int I=0									//Placeholder for loops
+		size=sizeof(T)							//Find and store the size of array T
+		For(I=0;I<size;I++) Then				//For every line in array T
+			TV.set_cursor(24,(4+(confL[T[I]]*6)+(2*confL[T[I]])))
+			TV.print(conf[T[I]])				//Display text line
+		End For
+		If(slt==1) Then							//If yes no display = 1 display yes no options
+			For(I=0;I<2;I++) Then				//Loop through array
+				TV.set_cursor(YNX[I],46)		//Set cursor to location
+				TV.print(YN[I])					//display text
+			End For
+		Else If(slt==2) Then					//If yes no display = 2 display 1 2 3 4 options
+			For(I=2;I<6;I++) Then				//Loop through array
+				TV.set_cursor(YNX[I],46)		//Stored text for use in menus
+				TV.print(YN[I])					//display text
+			End For
+		End If
+		IF(sel[0]==1) Then						//If selection = on
+			TV.draw_rectangle(sel[1],sel[2],sel[3],sel[4],1)
+			sel[0]=0							//Turn Selection off
+		End If
+	End If
+	Return()									//Return to main loop
+}

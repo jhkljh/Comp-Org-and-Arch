@@ -1,0 +1,239 @@
+//Name: Brandon Hindes
+//Date: 31-10-12
+//Purpose: Allow anyone with a remote to play pong on there TV.
+
+/* Notes =======================================
+** Screen Size   : 128 X, 96 Y
+** Paddle 1 Start:   4 X, 40 Y
+** Paddle 2 Start: 120 X, 40 Y
+** Paddle Size   :   4 X, 16 Y
+** Ball Start    :  62 X, 46 Y
+** Ball Size     :   4 X,  4 Y
+** Boarder POS   :  63 X,  0 Y
+** Boarder Size  :   2 X, 96 Y
+** Score 1 POS   :  16 X,  4 Y
+** Score 2 POS   : 104 X,  4 Y
+** Text Line 1   :  24 X,  4 Y
+** Text Line 2   :  24 X, 12 Y
+** Text Line 3   :  24 X, 20 Y
+** Text Line 4   :  24 X, 28 Y
+** Text Line 5   :  24 X, 36 Y
+** Text Line Size:  80 X,  6 Y
+** Text Yes POS  :  30 X, 45 Y
+** Text No POS   :  95 X, 45 Y
+** Text 1 POS    :  50 X, 45 Y
+** Text 2 POS    :  58 X, 45 Y
+** Text 3 POS    :  66 X, 45 Y
+** Text 4 POS    :  74 X, 45 Y
+** 
+** 
+** 
+** 
+** Serial.println("");
+**/
+
+//Library ======================================
+include <TVout.h>
+include <fontALL.h>
+include <IRremote.h>
+//Varriables ===================================
+//Pins =========================================
+int POWLED=13;                                  //Power LED Pin
+int IRIN=2;                                     //IR Input Pin
+int BTNPIN=4;                                   //Reset Button Pin
+int btnRead=0;                                  //Reset Button Value
+//IR ===========================================
+IRrecv irrecv(IRIN);
+decode_results results;
+int p1[4]={0,0,0,0};                            //Storage For User Controls
+int uInput=0;                                   //Placeholder for IR User Input
+//Display ======================================
+TVout TV;
+
+//Config =======================================
+int ballSpeed=2;                                //Current Speed of Ball
+
+//Gameplay =====================================
+int pScore[2]={0,0};                            //Player Scores
+int pPaddle[2]={40,40};                         //Location of Paddles
+int ball[4]={64,48,0,1};                        //Ball Location X,Y and Direction L/R,U/S/D
+int aiDir=0;                                    //Math for AI Paddle Movement Direction
+
+//Text =========================================
+String txt[]={
+"       PAUSED       ", //0
+"       CONFIG       ", //0/2
+"      PLAYER 1      ", //1
+"   PLEASE HIT THE   ", //2
+"BUTTON ON THE REMOTE", //4
+"        DOWN        ", //3
+"         UP         ", //3
+"        MENU        ", //3
+"       SELECT       ", //3
+"SELECT THE BALLSPEED", //2
+"  DRAW THE BOARDER  ", //2
+"    RESTART GAME    ", //3
+"     SLEEP MODE     "  //4
+};
+
+//Functions ====================================
+//Setup ========================================
+void setup(){
+    Serial.begin(9600);                         //Start USB Serial Monitor
+    Serial.println("Setup Begin");
+    Serial.println("Serial Debug Start");
+    //Display ==================================
+    TV.begin(NTSC,128,96);                      //Start TV as NTSC 128X,96Y
+    TV.select_font(font4x6);                    //Select font size 4x6 pixels
+    Serial.println("TV begin: NTSC 128X,96Y Font Size: 4x6");
+    //IR =======================================
+    irrecv.enableIRIn();                        //Start the receiver
+    Serial.println("IR Receiver Enabled");
+    //Initial ==================================
+    
+    Serial.println("Setup End");
+}
+
+//Main Loop ====================================
+void loop(){
+    Serial.println("Main Loop Begin");
+    btnRead=analogRead(BTNPIN);                 //Get Analog Value
+    Serial.println("Main Loop: Call User Input");
+    uInput=userInput();                         //Call User Input
+    Serial.println("Main Loop: User Input Returned");
+    
+    
+    
+    Serial.println("Main Loop End");
+}
+
+//IR Receiver ==================================
+int getIR(boolean F){ //F-Function: changes how the function runs
+    Serial.println("getIR Begin");
+    int code=0;                                 //Store results for transfer
+    do {
+        if(irrecv.decode(&results)) {            //If IR decode true store to results
+            Serial.println(results.value);
+            code=(results.value);
+            irrecv.resume();                    //Receive the next value
+        }
+        if(code!=0) {                            //If code is assigned a value other than 0
+            Serial.println("getIR: Code does not equal 0");
+            F=false;                            //Change Function to false
+        }
+    } while(F);                                  //Loop while F is true
+    Serial.println("getIR End");
+    return(code);
+}
+
+//User Input ========================================
+int userInput(){
+    Serial.println("User Input Begin");
+    
+    
+    
+    Serial.println("User Input End");
+    return();
+}
+
+//Menu =========================================
+void menu(){
+    Serial.println("Menu Begin");
+    
+    
+    
+    Serial.println("Menu End");
+    return;
+}
+
+//Configuration ================================
+void config(){
+    Serial.println("Config Begin");
+    
+    
+    
+    Serial.println("Config End");
+    return;
+}
+
+//Restart ======================================
+void restart(){
+    Serial.println("Restart Begin");
+    
+    
+    
+    Serial.println("Restart End");
+    return;
+}
+
+//Sleep ========================================
+void sleep(){
+    Serial.println("Sleep Begin");
+    
+    
+    
+    Serial.println("Sleep End");
+    return;
+}
+
+//AI ===========================================
+void AI(){
+    Serial.println("AI Begin");
+    
+    
+    
+    Serial.println("AI End");
+    return;
+}
+
+//Score ========================================
+void score(boolean P){ //P-Player: P1/P2
+    Serial.println("Score Begin");
+    if(P) {
+        pScore[0]=pScore[0]+1;
+    }
+    else {
+        pScore[1]=pScore[1]+1;
+    }
+    Serial.println("Score End");
+    return;
+}
+
+//Text =========================================
+String text(int L){ //L-Line: Tells what line to grab
+    Serial.println("Text Begin");
+    
+    
+    
+    Serial.println("Text End");
+    return();
+}
+
+//Paint ========================================
+void paint(boolean M){ //M-Menu: Menu/Game
+    Serial.println("Paint Begin");
+    if(M) {
+        
+    }
+    else {
+        
+    }
+    
+    Serial.println("Paint End");
+    return;
+}
+
+//Debug ========================================
+void debug(int E){ //E-Error: Error Number to display what went wrong
+    Serial.println("Debug Started");
+    
+    
+    
+    Serial.println("Debug End");
+    return;
+}
+
+
+
+
+
